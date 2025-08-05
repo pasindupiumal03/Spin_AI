@@ -25,6 +25,7 @@ declare global {
       connect: (options?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toString: () => string } }>;
       disconnect: () => Promise<void>;
       on: (event: string, callback: (arg: any) => void) => void;
+      off: (event: string, callback: (arg: any) => void) => void;
     };
   }
 }
