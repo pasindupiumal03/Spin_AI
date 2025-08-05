@@ -47,6 +47,7 @@ const HomePage = () => {
   const [isNavigating, setIsNavigating] = useState(false);
   const [error, setError] = useState("");
   const [originalPrompt, setOriginalPrompt] = useState("");
+  const [hasExistingProject, setHasExistingProject] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
