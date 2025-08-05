@@ -179,7 +179,7 @@ const HomePage = () => {
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ];
 
-    const newFiles = [];
+    const newFiles: UploadedFile[] = [];
 
     for (let file of files) {
       if (file.size > 10 * 1024 * 1024) {
