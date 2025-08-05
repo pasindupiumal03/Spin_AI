@@ -52,14 +52,20 @@ export function WalletProvider({
       localStorage.removeItem('walletAddress');
     };
 
-    window.solana.on('connect', handleConnect);
-    window.solana.on('disconnect', handleDisconnect);
+    // Only set up event listeners if solana is available
+    if (window.solana) {
+      window.solana.on('connect', handleConnect);
+      window.solana.on('disconnect', handleDisconnect);
 
-    // Cleanup
-    return () => {
-      window.solana?.off('connect', handleConnect);
-      window.solana?.off('disconnect', handleDisconnect);
-    };
+      // Cleanup
+      return () => {
+        window.solana?.off('connect', handleConnect);
+        window.solana?.off('disconnect', handleDisconnect);
+      };
+    }
+    
+    // Return empty cleanup function if solana is not available
+    return () => {};
   }, []);
 
   useEffect(() => {
