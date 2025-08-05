@@ -2,15 +2,21 @@
 
 import * as React from 'react';
 import type { DialogProps } from '@radix-ui/react-dialog';
-import { Command as CommandPrimitive } from 'cmdk';
+import { Command as CommandPrimitive, type CommandProps } from 'cmdk';
 import { Search } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
+// Custom type to avoid React type conflicts
+type FixedCommandProps = Omit<CommandProps, 'children'> & {
+  children: React.ReactNode;
+  className?: string;
+};
+
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive>
+  FixedCommandProps
 >(({ className, ...props }, ref) => (
   <CommandPrimitive
     ref={ref}
