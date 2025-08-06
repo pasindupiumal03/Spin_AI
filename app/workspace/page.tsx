@@ -644,7 +644,7 @@ const WorkspacePage = () => {
                 <div className="flex-1 flex flex-col h-full">
                   <div className="flex-1 h-full">
                     <SandpackPreview
-                      showOpenInCodeSandbox={false}
+                      showOpenInCodeSandbox={true}
                       showRefreshButton={true}
                       showNavigator={true}
                       style={{
