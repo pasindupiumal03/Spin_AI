@@ -47,7 +47,6 @@ const HomePage = () => {
   const [isNavigating, setIsNavigating] = useState(false);
   const [error, setError] = useState("");
   const [originalPrompt, setOriginalPrompt] = useState("");
-  const [hasExistingProject, setHasExistingProject] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -179,7 +178,7 @@ const HomePage = () => {
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ];
 
-    const newFiles: UploadedFile[] = [];
+    const newFiles = [];
 
     for (let file of files) {
       if (file.size > 10 * 1024 * 1024) {
