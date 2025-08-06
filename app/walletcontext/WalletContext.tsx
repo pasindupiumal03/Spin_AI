@@ -18,17 +18,17 @@ type WalletContextType = {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-declare global {
-  interface Window {
-    solana?: {
-      isPhantom?: boolean;
-      connect: (options?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toString: () => string } }>;
-      disconnect: () => Promise<void>;
-      on: (event: string, callback: (arg: any) => void) => void;
-      off: (event: string, callback: (arg: any) => void) => void;
-    };
-  }
+interface SolanaWindow extends Window {
+  solana?: {
+    isPhantom?: boolean;
+    connect: (options?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toString: () => string } }>;
+    disconnect: () => Promise<void>;
+    on: (event: string, callback: (arg: any) => void) => void;
+    off: (event: string, callback: (arg: any) => void) => void;
+  };
 }
+
+declare const window: SolanaWindow;
 
 interface WalletProviderProps {
   children: ReactNode;
@@ -53,17 +53,19 @@ export function WalletProvider({
       localStorage.removeItem('walletAddress');
     };
 
-    // Only set up event listeners if solana object exists
-    if (window.solana) {
-      window.solana.on('connect', handleConnect);
-      window.solana.on('disconnect', handleDisconnect);
+    // Type-safe access to window.solana
+    const solana = window.solana;
+    if (solana) {
+      solana.on('connect', handleConnect);
+      solana.on('disconnect', handleDisconnect);
     }
 
     // Cleanup
     return () => {
-      if (window.solana) {
-        window.solana.off('connect', handleConnect);
-        window.solana.off('disconnect', handleDisconnect);
+      const solana = window.solana;
+      if (solana) {
+        solana.off('connect', handleConnect);
+        solana.off('disconnect', handleDisconnect);
       }
     };
   }, []);
