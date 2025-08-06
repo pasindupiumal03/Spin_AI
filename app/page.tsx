@@ -413,7 +413,6 @@ const HomePage = () => {
     sessionStorage.removeItem("generatedFiles");
     sessionStorage.removeItem("originalPrompt");
     sessionStorage.removeItem("uploadedFiles");
-    setHasExistingProject(false);
     setOriginalPrompt("");
     setPrompt("");
     setUploadedFiles([]);
