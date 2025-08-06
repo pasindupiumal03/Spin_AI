@@ -160,7 +160,7 @@ Example structure:
       throw new Error("No valid JSON found in response");
     }
 
-    let files;
+    let files: Record<string, string>;
     try {
       files = JSON.parse(jsonMatch[0]);
     } catch (parseError) {
