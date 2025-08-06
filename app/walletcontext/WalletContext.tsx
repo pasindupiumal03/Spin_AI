@@ -25,6 +25,7 @@ declare global {
       connect: (options?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toString: () => string } }>;
       disconnect: () => Promise<void>;
       on: (event: string, callback: (arg: any) => void) => void;
+      off: (event: string, callback: (arg: any) => void) => void;
     };
   }
 }
@@ -52,13 +53,18 @@ export function WalletProvider({
       localStorage.removeItem('walletAddress');
     };
 
-    window.solana.on('connect', handleConnect);
-    window.solana.on('disconnect', handleDisconnect);
+    // Only set up event listeners if solana object exists
+    if (window.solana) {
+      window.solana.on('connect', handleConnect);
+      window.solana.on('disconnect', handleDisconnect);
+    }
 
     // Cleanup
     return () => {
-      window.solana?.off('connect', handleConnect);
-      window.solana?.off('disconnect', handleDisconnect);
+      if (window.solana) {
+        window.solana.off('connect', handleConnect);
+        window.solana.off('disconnect', handleDisconnect);
+      }
     };
   }, []);
 
