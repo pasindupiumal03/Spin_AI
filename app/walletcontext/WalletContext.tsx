@@ -18,19 +18,21 @@ type WalletContextType = {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-// Type for the Solana window object
-type SolanaWindow = Window & {
-  solana?: {
-    isPhantom?: boolean;
-    connect: (options?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toString: () => string } }>;
-    disconnect: () => Promise<void>;
-    on: (event: string, callback: (arg: any) => void) => void;
-    off: (event: string, callback: (arg: any) => void) => void;
-  };
+// Type for the Solana object
+type Solana = {
+  isPhantom?: boolean;
+  connect: (options?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toString: () => string } }>;
+  disconnect: () => Promise<void>;
+  on: (event: string, callback: (arg: any) => void) => void;
+  off: (event: string, callback: (arg: any) => void) => void;
 };
 
-// Type assertion for the global window object
-declare const window: SolanaWindow;
+// Extend the Window interface
+declare global {
+  interface Window {
+    solana?: Solana;
+  }
+}
 
 interface WalletProviderProps {
   children: ReactNode;
@@ -44,6 +46,12 @@ export function WalletProvider({
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    
+    const solana = window.solana;
+    if (!solana) {
+      console.warn('Solana object not found! Make sure you have Phantom installed.');
+      return;
+    }
 
     const handleConnect = () => {
       console.log('Connected to Phantom wallet');
@@ -55,22 +63,25 @@ export function WalletProvider({
       localStorage.removeItem('walletAddress');
     };
 
-    // Early return if solana is not available
-    const { solana } = window as SolanaWindow;
-    if (!solana) {
-      console.warn('Solana object not found! Make sure you have Phantom installed.');
-      return;
+    try {
+      // Set up event listeners
+      solana.on('connect', handleConnect);
+      solana.on('disconnect', handleDisconnect);
+
+      // Cleanup function
+      return () => {
+        try {
+          if (solana) {
+            solana.off('connect', handleConnect);
+            solana.off('disconnect', handleDisconnect);
+          }
+        } catch (error) {
+          console.error('Error cleaning up event listeners:', error);
+        }
+      };
+    } catch (error) {
+      console.error('Error setting up wallet event listeners:', error);
     }
-
-    // Set up event listeners
-    solana.on('connect', handleConnect);
-    solana.on('disconnect', handleDisconnect);
-
-    // Cleanup function
-    return () => {
-      solana.off('connect', handleConnect);
-      solana.off('disconnect', handleDisconnect);
-    };
   }, []);
 
   useEffect(() => {
@@ -82,7 +93,7 @@ export function WalletProvider({
     // Early return if no auto-connect needed
     if (!savedAddress || !shouldAutoConnect) return;
     
-    const { solana } = window as SolanaWindow;
+    const solana = window.solana;
     if (!solana?.isPhantom) {
       console.warn('Phantom wallet not found for auto-connect');
       return;
@@ -91,7 +102,7 @@ export function WalletProvider({
     console.log('Attempting auto-connect to Phantom wallet');
     solana
       .connect({ onlyIfTrusted: true })
-      .then((resp) => {
+      .then((resp: { publicKey: { toString: () => string } }) => {
         const address = resp.publicKey.toString();
         if (address === savedAddress) {
           setWalletAddress(address);
@@ -101,7 +112,7 @@ export function WalletProvider({
           localStorage.removeItem('autoConnect');
         }
       })
-      .catch((error) => {
+      .catch((error: Error) => {
         console.error('Auto-connect failed:', error);
         localStorage.removeItem('walletAddress');
         localStorage.removeItem('autoConnect');
@@ -114,7 +125,7 @@ export function WalletProvider({
       return;
     }
     
-    const { solana } = window as SolanaWindow;
+    const solana = window.solana;
     if (!solana) {
       console.warn('Phantom wallet not found, redirecting to install page');
       window.open('https://phantom.app/', '_blank');
@@ -143,9 +154,9 @@ export function WalletProvider({
   const disconnectWallet = useCallback(() => {
     if (typeof window === 'undefined') return;
     
-    const { solana } = window as SolanaWindow;
+    const solana = window.solana;
     if (solana) {
-      solana.disconnect().catch((error) => {
+      solana.disconnect().catch((error: Error) => {
         console.error('Error disconnecting wallet:', error);
       });
     }
