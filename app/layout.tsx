@@ -11,7 +11,14 @@ export const metadata: Metadata = {
   keywords: 'AI, web development, React, code generation, Sandpack, Gemini',
   authors: [{ name: 'Spin AI' }],
   viewport: 'width=device-width, initial-scale=1',
+  // Prevent FOUC (Flash of Unstyled Content)
+  other: {
+    'theme-color': '#ffffff',
+  },
 };
+
+// Force dynamic rendering to prevent caching issues
+export const dynamic = 'force-dynamic';
 
 export default function RootLayout({
   children,
@@ -20,10 +27,38 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Preload critical CSS */}
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              /* Critical CSS */
+              body { 
+                opacity: 0; 
+                transition: opacity 0.3s ease-in-out;
+              }
+              body.loaded { 
+                opacity: 1; 
+              }
+            `,
+          }}
+        />
+      </head>
       <body className={`${inter.className} antialiased`}>
         <Providers>
           {children}
         </Providers>
+        {/* Add a script to handle FOUC */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Remove loading class once the page has loaded
+              document.addEventListener('DOMContentLoaded', function() {
+                document.body.classList.add('loaded');
+              });
+            `,
+          }}
+        />
       </body>
     </html>
   );

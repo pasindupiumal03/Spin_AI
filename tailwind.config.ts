@@ -2,11 +2,19 @@ import type { Config } from 'tailwindcss';
 
 const config: Config = {
   darkMode: ['class'],
+  // Safelist any dynamic classes that might be used
+  safelist: [
+    'bg-red-500', 'bg-green-500', 'bg-blue-500', // Add any other dynamic classes you use
+  ],
   content: [
+    './src/**/*.{js,ts,jsx,tsx,mdx}',
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './node_modules/@nextui-org/theme/dist/**/*.{js,ts,jsx,tsx}', // If using NextUI
   ],
+  // Enable important to ensure styles are applied
+  important: true,
   theme: {
     extend: {
       backgroundImage: {
