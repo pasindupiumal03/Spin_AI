@@ -8,15 +8,22 @@ const nextConfig = {
     unoptimized: true,
     domains: [],
   },
-  // Ensure CSS is properly extracted in production
-  experimental: {
-    optimizeCss: true,
+  compiler: {
+    // Enable styled-components if you're using it
+    // styledComponents: true,
   },
-  // Enable CSS modules
-  cssModules: true,
-  // Ensure CSS is properly loaded
+  // Enable React Strict Mode
+  reactStrictMode: true,
+  // Enable SWC minification
+  swcMinify: true,
+  // Optimize CSS loading
+  experimental: {
+    optimizeCss: true,  // Now enabled with critters installed
+    scrollRestoration: true,
+  },
+  // Webpack configuration
   webpack: (config, { isServer }) => {
-    // Important: return the modified config
+    // Add any necessary webpack configurations here
     return config;
   },
 };
