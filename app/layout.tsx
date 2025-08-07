@@ -11,14 +11,7 @@ export const metadata: Metadata = {
   keywords: 'AI, web development, React, code generation, Sandpack, Gemini',
   authors: [{ name: 'Spin AI' }],
   viewport: 'width=device-width, initial-scale=1',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#000000' },
-  ],
 };
-
-// Force dynamic rendering to prevent caching issues
-export const dynamic = 'force-dynamic';
 
 export default function RootLayout({
   children,
@@ -27,16 +20,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* Preload critical fonts */}
-        <link
-          rel="preload"
-          href="/_next/static/media/Inter.var.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
-      </head>
       <body className={`${inter.className} antialiased`}>
         <Providers>
           {children}
