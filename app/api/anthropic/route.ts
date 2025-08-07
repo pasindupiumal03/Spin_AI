@@ -7,7 +7,8 @@ declare global {
 }
 
 // MongoDB connection with caching
-let cached: { conn: any | null; promise: Promise<any> | null } | undefined = globalThis.mongoose;
+let cached: { conn: any | null; promise: Promise<any> | null } | undefined =
+  globalThis.mongoose;
 
 if (!cached) {
   cached = globalThis.mongoose = { conn: null, promise: null };
@@ -23,9 +24,11 @@ async function connectMongo() {
       bufferCommands: false,
     };
 
-    cached!.promise = mongoose.connect(process.env.MONGODB_URI!, opts).then((mongoose) => {
-      return mongoose;
-    });
+    cached!.promise = mongoose
+      .connect(process.env.MONGODB_URI!, opts)
+      .then((mongoose) => {
+        return mongoose;
+      });
   }
   cached!.conn = await cached!.promise;
   return cached!.conn;
@@ -33,21 +36,44 @@ async function connectMongo() {
 
 // Conversation Schema
 const conversationSchema = new mongoose.Schema({
-  userId: { type: String, required: true },
+  userId: { 
+    type: String, 
+    required: true,
+    index: true,
+  },
   prompt: { type: String, required: false },
-  uploadedFiles: [{ id: Number, name: String, type: String, size: Number, content: String, lastModified: Number }],
+  uploadedFiles: [
+    {
+      id: Number,
+      name: String,
+      type: String,
+      size: Number,
+      content: String,
+      lastModified: Number,
+    },
+  ],
   generatedFiles: { type: Object, required: false },
   timestamp: { type: Date, default: Date.now },
 });
 
-const Conversation = mongoose.models.Conversation || mongoose.model('Conversation', conversationSchema);
+// Ensure the schema is only defined once
+const Conversation =
+  mongoose.models.Conversation ||
+  mongoose.model("Conversation", conversationSchema);
 
-async function fetchWithRetry(url: string, options: RequestInit, retries: number = 3, backoff: number = 1000) {
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  retries: number = 3,
+  backoff: number = 1000
+) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const response = await fetch(url, options);
       if (response.status === 529 && attempt < retries) {
-        console.log(`Attempt ${attempt} failed with 529. Retrying after ${backoff}ms...`);
+        console.log(
+          `Attempt ${attempt} failed with 529. Retrying after ${backoff}ms...`
+        );
         await new Promise((resolve) => setTimeout(resolve, backoff));
         backoff *= 2; // Exponential backoff
         continue;
@@ -66,11 +92,23 @@ async function fetchWithRetry(url: string, options: RequestInit, retries: number
 export async function POST(request: NextRequest) {
   try {
     await connectMongo();
-    const { prompt, existingFiles, uploadedFiles, userId = 'user123' } = await request.json();
+    const {
+      prompt,
+      existingFiles,
+      uploadedFiles,
+      userId, // Accept userId from request
+    } = await request.json();
 
     if (!prompt && (!uploadedFiles || uploadedFiles.length === 0)) {
       return NextResponse.json(
         { error: "Prompt or uploaded files are required" },
+        { status: 400 }
+      );
+    }
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "userId is required" },
         { status: 400 }
       );
     }
@@ -98,17 +136,18 @@ CRITICAL REQUIREMENTS:
 9. Ensure the response is a single, valid JSON object with no additional text, markdown, or code fences.
 10. Keep the response concise to fit within 8000 tokens, prioritizing essential code and styles.
 
-${existingFiles
-        ? `Existing files to modify:
+${
+  existingFiles
+    ? `Existing files to modify:
 ${JSON.stringify(existingFiles, null, 2)}
 
 User request to modify the existing application: ${prompt}
 
 Update the provided files according to the user's request. Preserve unchanged functionality and structure where possible, and only modify or add files as needed to implement the requested changes. Ensure the updated files form a complete, functional React application.`
-        : `User request: ${prompt}
+    : `User request: ${prompt}
 
 Generate a complete, functional React application with beautiful styling and meaningful functionality.`
-      }
+}
 
 Example structure:
 {
@@ -124,7 +163,11 @@ Example structure:
       messages: [{ role: "user", content: systemPrompt }],
     });
 
-    console.log("Sending request to Anthropic API:", { prompt, model: "claude-opus-4-20250514", hasExistingFiles: !!existingFiles });
+    console.log("Sending request to Anthropic API:", {
+      prompt,
+      model: "claude-opus-4-20250514",
+      hasExistingFiles: !!existingFiles,
+    });
 
     const response = await fetchWithRetry(
       "https://api.anthropic.com/v1/messages",
@@ -144,7 +187,9 @@ Example structure:
 
     if (data.stop_reason === "max_tokens") {
       console.warn("Response truncated due to max_tokens limit");
-      throw new Error("Response truncated: Increase max_tokens or simplify prompt");
+      throw new Error(
+        "Response truncated: Increase max_tokens or simplify prompt"
+      );
     }
 
     const responseText = data.content[0]?.text;
@@ -160,7 +205,7 @@ Example structure:
       throw new Error("No valid JSON found in response");
     }
 
-    let files: Record<string, string>;
+    let files;
     try {
       files = JSON.parse(jsonMatch[0]);
     } catch (parseError) {
@@ -193,9 +238,13 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
 `;
       }
-      const remainingMissingFiles = requiredFiles.filter((file) => !files[file]);
+      const remainingMissingFiles = requiredFiles.filter(
+        (file) => !files[file]
+      );
       if (remainingMissingFiles.length > 0) {
-        throw new Error(`Missing required files: ${remainingMissingFiles.join(", ")}`);
+        throw new Error(
+          `Missing required files: ${remainingMissingFiles.join(", ")}`
+        );
       }
     }
 
@@ -222,7 +271,8 @@ root.render(<App />);
     });
     await conversation.save();
 
-    return NextResponse.json({ files, conversationId: conversation._id });
+    // Return userId along with files and conversationId
+    return NextResponse.json({ files, conversationId: conversation._id, userId });
   } catch (error) {
     console.error("Error in Anthropic API route:", error);
     let errorMessage = "Failed to generate code";
@@ -237,12 +287,25 @@ export async function GET(request: NextRequest) {
   try {
     await connectMongo();
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    const userId = searchParams.get("userId");
 
-    const conversations = await Conversation.find({ userId }).sort({ timestamp: -1 });
+    // Validate userId
+    if (!userId) {
+      return NextResponse.json(
+        { error: "userId is required" },
+        { status: 400 }
+      );
+    }
+
+    const conversations = await Conversation.find({ userId }).sort({
+      timestamp: -1,
+    });
     return NextResponse.json({ conversations }, { status: 200 });
   } catch (error) {
     console.error("Error retrieving conversations:", error);
-    return NextResponse.json({ error: "Failed to retrieve conversations" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to retrieve conversations" },
+      { status: 500 }
+    );
   }
 }

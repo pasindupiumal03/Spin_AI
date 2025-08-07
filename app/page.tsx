@@ -52,8 +52,6 @@ const HomePage = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] =
     useState<Conversation | null>(null);
-
-  // Wallet connection
   const { walletAddress, connectWallet, disconnectWallet, connecting } =
     useWallet();
   const [expandedFiles, setExpandedFiles] = useState<{
@@ -62,8 +60,21 @@ const HomePage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
+  // Initialize or retrieve userId based on wallet address
   useEffect(() => {
-    // Check for existing project in sessionStorage
+    let userId = localStorage.getItem("userId");
+    if (!userId && walletAddress) {
+      // Derive userId from wallet address (e.g., hash or use directly)
+      userId = walletAddress; // Using walletAddress as userId for simplicity
+      localStorage.setItem("userId", userId);
+    }
+    if (userId) {
+      fetchConversations(userId);
+    } else {
+      setConversations([]); // No userId, no conversations
+    }
+
+    // Load stored data
     const storedFiles = sessionStorage.getItem("generatedFiles");
     const storedPrompt = sessionStorage.getItem("originalPrompt");
     const storedUploadedFiles = sessionStorage.getItem("uploadedFiles");
@@ -71,18 +82,14 @@ const HomePage = () => {
     if (storedFiles && storedPrompt) {
       setOriginalPrompt(storedPrompt);
     }
-
     if (storedUploadedFiles) {
       setUploadedFiles(JSON.parse(storedUploadedFiles));
     }
+  }, [walletAddress]); // Re-run when walletAddress changes
 
-    // Fetch conversation history
-    fetchConversations();
-  }, []);
-
-  const fetchConversations = async () => {
+  const fetchConversations = async (userId: string) => {
     try {
-      const response = await fetch("/api/anthropic?userId=user123");
+      const response = await fetch(`/api/anthropic?userId=${encodeURIComponent(userId)}`);
       const data = await response.json();
       if (data.conversations) {
         setConversations(data.conversations);
@@ -284,19 +291,27 @@ const HomePage = () => {
       return;
     }
 
+    if (!walletAddress && !localStorage.getItem("userId")) {
+      setError("Please connect your wallet to create a project");
+      return;
+    }
+
     // Set states for immediate feedback
     setIsGenerating(true);
     setIsNavigating(true);
     setError("");
+
+    // Use existing userId or walletAddress
+    const userId = localStorage.getItem("userId") || walletAddress;
 
     // Store the generation request data in sessionStorage for the workspace to pick up
     const generationRequest = {
       prompt,
       existingFiles: null,
       uploadedFiles: uploadedFiles.length > 0 ? uploadedFiles : null,
-      userId: "user123",
       isGenerating: true,
       startTime: Date.now(),
+      userId, // Include userId in the request
     };
 
     // Clear any existing generated files and set up the generation state
@@ -321,14 +336,15 @@ const HomePage = () => {
         prompt,
         existingFiles: null,
         uploadedFiles: uploadedFiles.length > 0 ? uploadedFiles : null,
-        userId: "user123",
         uploadedFilesCount: uploadedFiles.length,
+        userId, // Pass userId to backend
       };
 
       console.log("Sending request to API with body:", {
         promptLength: prompt.length,
         hasExistingFiles: false,
         uploadedFilesCount: uploadedFiles.length,
+        userId,
       });
 
       const response = await fetch("/api/anthropic", {
@@ -362,9 +378,14 @@ const HomePage = () => {
       }
 
       if (data.files) {
+        // Store userId from response or keep existing
+        if (data.userId && !localStorage.getItem("userId")) {
+          localStorage.setItem("userId", data.userId);
+        }
+
         // Create new conversation
         const newConversation = {
-          _id: Date.now().toString(),
+          _id: data.conversationId,
           prompt,
           uploadedFiles: uploadedFiles.length > 0 ? uploadedFiles : null,
           generatedFiles: data.files,
@@ -376,8 +397,8 @@ const HomePage = () => {
         sessionStorage.setItem("generationComplete", "true");
         sessionStorage.removeItem("generationRequest");
 
-        // Add to conversation history (this will be handled by the workspace component)
-        // The workspace component should listen for storage changes or poll for completion
+        // Update conversation history
+        setConversations((prev) => [newConversation, ...prev]);
       } else {
         throw new Error("No files generated");
       }
@@ -418,6 +439,8 @@ const HomePage = () => {
     setUploadedFiles([]);
     setSelectedConversation(null);
     setExpandedFiles({});
+    // Keep userId to maintain conversation history
+    fetchConversations(localStorage.getItem("userId") || walletAddress || "");
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -481,6 +504,8 @@ const HomePage = () => {
                 onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                   e.stopPropagation();
                   disconnectWallet();
+                  localStorage.removeItem("userId"); // Clear userId on disconnect
+                  setConversations([]); // Clear history
                 }}
                 className="text-gray-400 hover:text-white transition-colors"
                 title="Disconnect wallet"
