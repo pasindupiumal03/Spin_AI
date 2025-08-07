@@ -11,10 +11,10 @@ export const metadata: Metadata = {
   keywords: 'AI, web development, React, code generation, Sandpack, Gemini',
   authors: [{ name: 'Spin AI' }],
   viewport: 'width=device-width, initial-scale=1',
-  // Prevent FOUC (Flash of Unstyled Content)
-  other: {
-    'theme-color': '#ffffff',
-  },
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#000000' },
+  ],
 };
 
 // Force dynamic rendering to prevent caching issues
@@ -28,37 +28,19 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Preload critical CSS */}
-        <style
-          dangerouslySetInnerHTML={{
-            __html: `
-              /* Critical CSS */
-              body { 
-                opacity: 0; 
-                transition: opacity 0.3s ease-in-out;
-              }
-              body.loaded { 
-                opacity: 1; 
-              }
-            `,
-          }}
+        {/* Preload critical fonts */}
+        <link
+          rel="preload"
+          href="/_next/static/media/Inter.var.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
         />
       </head>
       <body className={`${inter.className} antialiased`}>
         <Providers>
           {children}
         </Providers>
-        {/* Add a script to handle FOUC */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              // Remove loading class once the page has loaded
-              document.addEventListener('DOMContentLoaded', function() {
-                document.body.classList.add('loaded');
-              });
-            `,
-          }}
-        />
       </body>
     </html>
   );

@@ -1,0 +1,42 @@
+{
+  "extends": [
+    "stylelint-config-standard",
+    "stylelint-config-css-modules",
+    "stylelint-config-prettier"
+  ],
+  "plugins": ["stylelint-order"],
+  "rules": {
+    "at-rule-no-unknown": [
+      true,
+      {
+        "ignoreAtRules": [
+          "tailwind",
+          "apply",
+          "variants",
+          "responsive",
+          "screen",
+          "layer"
+        ]
+      }
+    ],
+    "declaration-block-trailing-semicolon": null,
+    "no-descending-specificity": null,
+    "order/order": [
+      "custom-properties",
+      "declarations"
+    ],
+    "order/properties-order": [
+      "width",
+      "height"
+    ]
+  },
+  "ignoreFiles": [
+    "**/*.js",
+    "**/*.jsx",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/node_modules/**",
+    ".next/**",
+    "out/**"
+  ]
+}
