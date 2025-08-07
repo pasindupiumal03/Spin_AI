@@ -172,9 +172,47 @@ export async function POST(request: NextRequest) {
       throw new Error("No valid JSON found in response");
     }
 
-    let files: { [key: string]: string };
+    let files: { [key: string]: any };
+    let projectTitle: string | null = null;
+    let explanation: string | null = null;
+    let emoji: string | null = null;
+    
     try {
-      files = JSON.parse(jsonMatch[0]) as { [key: string]: string };
+      const parsedResponse = JSON.parse(jsonMatch[0]) as { [key: string]: any };
+      
+      // Extract additional fields from the response
+      projectTitle = parsedResponse.projectTitle || null;
+      explanation = parsedResponse.explanation || null;
+      emoji = parsedResponse.emoji || null;
+      
+      // Handle new schema where files are objects with 'code' property
+      if (parsedResponse && typeof parsedResponse === 'object' && 'files' in parsedResponse) {
+        const filesObj = parsedResponse.files;
+        const flattenedFiles: { [key: string]: string } = {};
+        
+        // Extract code from each file object
+        for (const key in filesObj) {
+          if (filesObj[key] && typeof filesObj[key] === 'object' && 'code' in filesObj[key]) {
+            flattenedFiles[key] = filesObj[key].code;
+          } else if (typeof filesObj[key] === 'string') {
+            // Handle case where it's already a string
+            flattenedFiles[key] = filesObj[key];
+          }
+        }
+        
+        files = flattenedFiles;
+      } else {
+        // Handle old schema or direct files object
+        const flattenedFiles: { [key: string]: string } = {};
+        for (const key in parsedResponse) {
+          if (parsedResponse[key] && typeof parsedResponse[key] === 'object' && 'code' in parsedResponse[key]) {
+            flattenedFiles[key] = parsedResponse[key].code;
+          } else if (typeof parsedResponse[key] === 'string') {
+            flattenedFiles[key] = parsedResponse[key];
+          }
+        }
+        files = flattenedFiles;
+      }
     } catch (parseError) {
       const cleanedJson = jsonMatch[0]
         .replace(/```json\n?/g, "")
@@ -182,7 +220,41 @@ export async function POST(request: NextRequest) {
         .replace(/^\s*[\r\n]/gm, "")
         .trim();
       try {
-        files = JSON.parse(cleanedJson) as { [key: string]: string };
+        const parsedResponse = JSON.parse(cleanedJson) as { [key: string]: any };
+        
+        // Extract additional fields from the response
+        projectTitle = parsedResponse.projectTitle || null;
+        explanation = parsedResponse.explanation || null;
+        emoji = parsedResponse.emoji || null;
+        
+        // Handle new schema where files are objects with 'code' property
+        if (parsedResponse && typeof parsedResponse === 'object' && 'files' in parsedResponse) {
+          const filesObj = parsedResponse.files;
+          const flattenedFiles: { [key: string]: string } = {};
+          
+          // Extract code from each file object
+          for (const key in filesObj) {
+            if (filesObj[key] && typeof filesObj[key] === 'object' && 'code' in filesObj[key]) {
+              flattenedFiles[key] = filesObj[key].code;
+            } else if (typeof filesObj[key] === 'string') {
+              // Handle case where it's already a string
+              flattenedFiles[key] = filesObj[key];
+            }
+          }
+          
+          files = flattenedFiles;
+        } else {
+          // Handle old schema or direct files object
+          const flattenedFiles: { [key: string]: string } = {};
+          for (const key in parsedResponse) {
+            if (parsedResponse[key] && typeof parsedResponse[key] === 'object' && 'code' in parsedResponse[key]) {
+              flattenedFiles[key] = parsedResponse[key].code;
+            } else if (typeof parsedResponse[key] === 'string') {
+              flattenedFiles[key] = parsedResponse[key];
+            }
+          }
+          files = flattenedFiles;
+        }
       } catch (secondParseError) {
         console.error("Failed to parse JSON after cleaning:", cleanedJson);
         throw new Error("Failed to parse generated content as JSON");
@@ -238,8 +310,15 @@ root.render(<App />);
     });
     await conversation.save();
 
-    // Return userId along with files and conversationId
-    return NextResponse.json({ files, conversationId: conversation._id, userId });
+    // Return userId along with files and conversationId, plus new fields
+    return NextResponse.json({ 
+      files, 
+      conversationId: conversation._id, 
+      userId,
+      projectTitle,
+      explanation,
+      emoji
+    });
   } catch (error) {
     console.error("Error in Anthropic API route:", error);
     let errorMessage = "Failed to generate code";

@@ -119,6 +119,14 @@ const WorkspacePage = () => {
     const storedChangedFiles = sessionStorage.getItem("changedFiles");
     const storedPromptFileHistory = sessionStorage.getItem("promptFileHistory");
 
+    // Check if user has a userId
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+      console.warn("No userId found, redirecting to home page");
+      router.push("/");
+      return;
+    }
+
     if (generationRequest && !existingFiles) {
       const request = JSON.parse(generationRequest);
       setOriginalPrompt(request.prompt || "");
@@ -195,10 +203,26 @@ const WorkspacePage = () => {
       
       // Update promptFileHistory for initial generation
       const storedPrompt = sessionStorage.getItem("originalPrompt") || "";
-      setPromptFileHistory([{ prompt: storedPrompt, files: fileNames.map(path => ({ path, status: "new" })) }]);
+      const projectTitle = sessionStorage.getItem("projectTitle");
+      const explanation = sessionStorage.getItem("explanation");
+      const emoji = sessionStorage.getItem("emoji");
+      
+      setPromptFileHistory([{ 
+        prompt: storedPrompt, 
+        files: fileNames.map(path => ({ path, status: "new" })),
+        projectTitle: projectTitle || undefined,
+        explanation: explanation || undefined,
+        emoji: emoji || undefined
+      }]);
       sessionStorage.setItem(
         "promptFileHistory",
-        JSON.stringify([{ prompt: storedPrompt, files: fileNames.map(path => ({ path, status: "new" })) }])
+        JSON.stringify([{ 
+          prompt: storedPrompt, 
+          files: fileNames.map(path => ({ path, status: "new" })),
+          projectTitle: projectTitle || undefined,
+          explanation: explanation || undefined,
+          emoji: emoji || undefined
+        }])
       );
       
       if (generationPollingRef.current) {
@@ -261,6 +285,13 @@ const WorkspacePage = () => {
 
     try {
       const prevFiles = { ...files };
+      
+      // Get userId from localStorage (set in main page)
+      const userId = localStorage.getItem("userId");
+      if (!userId) {
+        throw new Error("User ID not found. Please refresh the page and try again.");
+      }
+
       const response = await fetch("/api/anthropic", {
         method: "POST",
         headers: {
@@ -269,6 +300,7 @@ const WorkspacePage = () => {
         body: JSON.stringify({
           prompt: chatPrompt,
           existingFiles: files,
+          userId: userId,
         }),
       });
 
@@ -299,7 +331,13 @@ const WorkspacePage = () => {
         setPromptFileHistory(prev => {
           const updatedHistory = [
             ...prev,
-            { prompt: chatPrompt, files: changedFilesList },
+            { 
+              prompt: chatPrompt, 
+              files: changedFilesList,
+              projectTitle: data.projectTitle,
+              explanation: data.explanation,
+              emoji: data.emoji
+            },
           ];
           sessionStorage.setItem("promptFileHistory", JSON.stringify(updatedHistory));
           return updatedHistory;
@@ -316,13 +354,19 @@ const WorkspacePage = () => {
         typeof error === "object" && error !== null && "message" in error
           ? (error as { message: string }).message
           : String(error);
-      setChatError(
-        errorMessage.includes("truncate") || errorMessage.includes("max_tokens")
-          ? "Response too large. Try a simpler prompt or try again later."
-          : errorMessage.includes("529")
-          ? "Anthropic API is temporarily unavailable. Please try again later."
-          : `Failed to update code: ${errorMessage}`
-      );
+      
+      // Handle specific error cases
+      if (errorMessage.includes("User ID not found")) {
+        setChatError("Session expired. Please refresh the page and try again.");
+      } else if (errorMessage.includes("truncate") || errorMessage.includes("max_tokens")) {
+        setChatError("Response too large. Try a simpler prompt or try again later.");
+      } else if (errorMessage.includes("529")) {
+        setChatError("Anthropic API is temporarily unavailable. Please try again later.");
+      } else if (errorMessage.includes("400")) {
+        setChatError("Invalid request. Please check your prompt and try again.");
+      } else {
+        setChatError(`Failed to update code: ${errorMessage}`);
+      }
     } finally {
       setIsChatGenerating(false);
     }
@@ -601,7 +645,110 @@ const WorkspacePage = () => {
             ) : Object.keys(files).length > 0 ? (
               <SandpackProvider
                 template="react"
-                files={files}
+                files={{
+                  ...files,
+                  "/App.css": files["/App.css"] || {
+                    code: `/* Default App.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #ffffff;
+  color: #000000;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Ensure Tailwind classes work */
+* {
+  box-sizing: border-box;
+}`,
+                  },
+                  "/index.css": files["/index.css"] || {
+                    code: `/* Default index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #ffffff;
+  color: #000000;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}`,
+                  },
+                  "/index.js": files["/index.js"] || {
+                    code: `import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './App.css';
+import './index.css';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);`,
+                  },
+                  "/tailwind.config.js": {
+                    code: `/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./src/**/*.{js,jsx,ts,tsx}",
+    "./public/index.html",
+    "./**/*.{js,jsx,ts,tsx}",
+    "./*.{js,jsx,ts,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}`,
+                  },
+                  "/postcss.config.js": {
+                    code: `module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}`,
+                  },
+                  "/src/index.css": {
+                    code: `@tailwind base;
+@tailwind components;
+@tailwind utilities;`,
+                  },
+                  "/public/index.html": files["/public/index.html"] || {
+                    code: `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Generated App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>`,
+                  },
+                }}
                 theme="dark"
                 options={{
                   visibleFiles: Object.keys(files),
@@ -616,6 +763,15 @@ const WorkspacePage = () => {
                     react: "^18.2.0",
                     "react-dom": "^18.2.0",
                     "react-scripts": "^5.0.1",
+                    "lucide-react": "^0.446.0",
+                    "date-fns": "^3.6.0",
+                    "react-chartjs-2": "^5.2.0",
+                    "chart.js": "^4.4.0",
+                    "firebase": "^10.7.0",
+                    "@google/generative-ai": "^0.24.1",
+                    "tailwindcss": "^3.3.3",
+                    "autoprefixer": "^10.4.15",
+                    "postcss": "^8.4.30",
                   },
                 }}
               >
