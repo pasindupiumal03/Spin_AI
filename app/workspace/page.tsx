@@ -55,9 +55,17 @@ const WorkspacePage = () => {
   const [isInitialGeneration, setIsInitialGeneration] = useState(false);
   const [generatedFilesList, setGeneratedFilesList] = useState<string[]>([]);
   const [changedFiles, setChangedFiles] = useState<{ path: string; status: "updated" | "new" }[]>([]);
+  // 1. Update the promptFileHistory state to support new fields
   const [promptFileHistory, setPromptFileHistory] = useState<
-    { prompt: string; files: { path: string; status: "updated" | "new" }[] }[]
+    {
+      prompt: string;
+      files: { path: string; status: "updated" | "new" }[];
+      projectTitle?: string;
+      explanation?: string;
+      emoji?: string;
+    }[]
   >([]);
+  const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number | null>(null);
   const [generationStatus, setGenerationStatus] = useState<"idle" | "generating" | "complete" | "error">("idle");
   const [generationError, setGenerationError] = useState("");
   const [isExporting, setIsExporting] = useState(false);
@@ -391,14 +399,23 @@ const WorkspacePage = () => {
           <div className="flex-1 p-4 overflow-y-auto" ref={chatContainerRef}>
             {promptFileHistory.length > 0 ? (
               promptFileHistory.map((entry, index) => (
-                <div key={index} className="mb-6">
+                <div key={index} className={`mb-6 cursor-pointer group ${selectedHistoryIndex === index ? 'bg-gray-800/60 rounded-lg' : ''}`}
+                  onClick={() => setSelectedHistoryIndex(index)}
+                  title={entry.projectTitle || entry.prompt}
+                >
                   <div className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-lime-500 flex items-center justify-center">
                       <span className="text-xs text-black">{index + 1}</span>
                     </div>
                     <div className="flex-1">
-                      <div className="text-sm font-medium text-gray-300 mb-2">
-                        {entry.prompt || "Initial Project Generation"}
+                      <div className="flex items-center gap-2 mb-1">
+                        {entry.emoji && <span className="text-lg">{entry.emoji}</span>}
+                        <span className="text-sm font-bold text-lime-300">
+                          {entry.projectTitle || "Project"}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-400 mb-1">
+                        {entry.explanation || entry.prompt || "Initial Project Generation"}
                       </div>
                       {entry.files.length > 0 && (
                         <div className="space-y-1">

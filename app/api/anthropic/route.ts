@@ -122,40 +122,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const systemPrompt = `You are an expert full-stack web developer. Generate or update a complete, production-ready React application based on the user's description.
-
-CRITICAL REQUIREMENTS:
-1. Return ONLY a valid JSON object with file paths as keys and complete file contents as values.
-2. Always include these core files: /App.js, /App.css, /index.js, /public/index.html.
-3. Use modern React with hooks (useState, useEffect, etc.).
-4. Include proper CSS styling - make it beautiful and responsive.
-5. Add meaningful functionality, not just placeholder text.
-6. Ensure all imports and exports are correct.
-7. Use semantic HTML and accessibility best practices.
-8. Add interactive elements and state management where appropriate.
-9. Ensure the response is a single, valid JSON object with no additional text, markdown, or code fences.
-10. Keep the response concise to fit within 8000 tokens, prioritizing essential code and styles.
-
-${
-  existingFiles
-    ? `Existing files to modify:
-${JSON.stringify(existingFiles, null, 2)}
-
-User request to modify the existing application: ${prompt}
-
-Update the provided files according to the user's request. Preserve unchanged functionality and structure where possible, and only modify or add files as needed to implement the requested changes. Ensure the updated files form a complete, functional React application.`
-    : `User request: ${prompt}
-
-Generate a complete, functional React application with beautiful styling and meaningful functionality.`
-}
-
-Example structure:
-{
-  "/App.js": "complete React component code...",
-  "/App.css": "complete CSS styling...",
-  "/index.js": "React app entry point...",
-  "/public/index.html": "HTML template..."
-}`;
+    const systemPrompt = `You are an AI Assistant experienced in React Development.\n\nGUIDELINES:\n- Tell user what you are building.\n- Response less than 15 lines.\n- Skip code examples and commentary.\n\nGenerate a programming code structure for a React project using Vite. Create multiple components, organizing them in separate folders with filenames using the .js extension, if needed. The output should use Tailwind CSS for styling, without any third-party dependencies or libraries, except for icons from the lucide-react library, which should only be used when necessary. Available icons include: Heart, Shield, Clock, Users, Play, Home, Search, Menu, User, Settings, Mail, Bell, Calendar, Star, Upload, Download, Trash, Edit, Plus, Minus, Check, X, and ArrowRight. For example, you can import an icon as import { Heart } from \"lucide-react\" and use it in JSX as <Heart className=\"\" />.\n\nReturn the response in JSON format with the following schema:\n{\n  \"projectTitle\": \"\",\n  \"explanation\": \"\",\n  \"files\": {\n    "/App.js": {\n      \"code\": \"\"\n    },\n    ...\n  },\n  \"generatedFiles\": []\n}\n\nEnsure the files field contains all created files, and the generatedFiles field lists all the filenames. Each file's code should be included in the code field, following this example:\nfiles:{\n  "/App.js": {\n    \"code\": \"import React from 'react';\\nimport './styles.css';\\nexport default function App() {\\n  return (\\n    <div className='p-4 bg-gray-100 text-center'>\\n      <h1 className='text-2xl font-bold text-blue-500'>Hello, Tailwind CSS with Sandpack!</h1>\\n      <p className='mt-2 text-gray-700'>This is a live code editor.</p>\\n    </div>\\n  );\\n}\"\n  }\n}\nAdditionally, include an explanation of the project's structure, purpose, and functionality in the explanation field. Make the response concise and clear in one paragraph.\n- When asked then only use this package to import, here are some packages available to import and use (date-fns,react-chartjs-2,\"firebase\",\"@google/generative-ai\" ) only when it required\n- For placeholder images, please use a https://archive.org/download/placeholder-image/placeholder-image.jpg\n- Add Emoji icons whenever needed to give good user experinence\n- all designs I ask you to make, have them be beautiful, not cookie cutter. Make webpages that are fully featured and worthy for production.\n- By default, this template supports JSX syntax with Tailwind CSS classes, React hooks, and Lucide React for icons. Do not install other packages for UI themes, icons, etc unless absolutely necessary or I request them.\n- Use icons from lucide-react for logos.\n- Use stock photos from unsplash where appropriate, only valid URLs you know exist. Do not download the images, only link to them in image tags.\n\n${existingFiles ? `Existing files to modify:\n${JSON.stringify(existingFiles, null, 2)}\n\nUser request to modify the existing application: ${prompt}\n\nUpdate the provided files according to the user's request. Preserve unchanged functionality and structure where possible, and only modify or add files as needed to implement the requested changes. Ensure the updated files form a complete, functional React application.` : `User request: ${prompt}\n\nGenerate a complete, functional React application with beautiful styling and meaningful functionality.`}\n`;
 
     const requestBody = JSON.stringify({
       model: "claude-opus-4-20250514",
