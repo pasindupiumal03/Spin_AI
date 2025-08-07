@@ -205,9 +205,9 @@ Example structure:
       throw new Error("No valid JSON found in response");
     }
 
-    let files;
+    let files: { [key: string]: string };
     try {
-      files = JSON.parse(jsonMatch[0]);
+      files = JSON.parse(jsonMatch[0]) as { [key: string]: string };
     } catch (parseError) {
       const cleanedJson = jsonMatch[0]
         .replace(/```json\n?/g, "")
@@ -215,7 +215,7 @@ Example structure:
         .replace(/^\s*[\r\n]/gm, "")
         .trim();
       try {
-        files = JSON.parse(cleanedJson);
+        files = JSON.parse(cleanedJson) as { [key: string]: string };
       } catch (secondParseError) {
         console.error("Failed to parse JSON after cleaning:", cleanedJson);
         throw new Error("Failed to parse generated content as JSON");
