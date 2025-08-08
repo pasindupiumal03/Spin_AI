@@ -20,6 +20,8 @@ import {
   ChevronUp,
   Wallet,
   LogOut,
+  Image,
+  Text,
 } from "lucide-react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/cjs/styles/prism";
@@ -57,24 +59,24 @@ const HomePage = () => {
   const [expandedFiles, setExpandedFiles] = useState<{
     [key: string]: boolean;
   }>({});
+  const [showUploadOptions, setShowUploadOptions] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   // Initialize or retrieve userId based on wallet address
   useEffect(() => {
     let userId = localStorage.getItem("userId");
     if (!userId && walletAddress) {
-      // Derive userId from wallet address (e.g., hash or use directly)
-      userId = walletAddress; // Using walletAddress as userId for simplicity
+      userId = walletAddress;
       localStorage.setItem("userId", userId);
     }
     if (userId) {
       fetchConversations(userId);
     } else {
-      setConversations([]); // No userId, no conversations
+      setConversations([]);
     }
 
-    // Load stored data
     const storedFiles = sessionStorage.getItem("generatedFiles");
     const storedPrompt = sessionStorage.getItem("originalPrompt");
     const storedUploadedFiles = sessionStorage.getItem("uploadedFiles");
@@ -85,7 +87,7 @@ const HomePage = () => {
     if (storedUploadedFiles) {
       setUploadedFiles(JSON.parse(storedUploadedFiles));
     }
-  }, [walletAddress]); // Re-run when walletAddress changes
+  }, [walletAddress]);
 
   const fetchConversations = async (userId: string) => {
     try {
@@ -102,7 +104,7 @@ const HomePage = () => {
   };
 
   const getFileIcon = (fileType: string) => {
-    if (fileType.startsWith("image/")) return <File className="w-4 h-4" />;
+    if (fileType.startsWith("image/")) return <Image className="w-4 h-4" />;
     if (fileType.includes("text/") || fileType.includes("json"))
       return <FileText className="w-4 h-4" />;
     if (
@@ -154,42 +156,45 @@ const HomePage = () => {
     }));
   };
 
-  const handleFileUpload = async (files: File[]) => {
-    const supportedFormats = [
-      "text/plain",
-      "text/csv",
-      "application/json",
-      "text/html",
-      "text/css",
-      "text/javascript",
-      "application/javascript",
-      "text/typescript",
-      "application/typescript",
-      "text/python",
-      "application/python",
-      "text/java",
-      "application/java",
-      "text/xml",
-      "application/xml",
-      "text/markdown",
-      "text/yaml",
-      "application/yaml",
-      "application/pdf",
-      "image/png",
-      "image/jpeg",
-      "image/gif",
-      "image/svg+xml",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "application/vnd.ms-excel",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ];
+  const handleFileUpload = async (files: File[], isImage: boolean = false) => {
+    const supportedFormats = isImage
+      ? ["image/png", "image/jpeg", "image/gif", "image/svg+xml"]
+      : [
+          "text/plain",
+          "text/csv",
+          "application/json",
+          "text/html",
+          "text/css",
+          "text/javascript",
+          "application/javascript",
+          "text/typescript",
+          "application/typescript",
+          "text/python",
+          "application/python",
+          "text/java",
+          "application/java",
+          "text/xml",
+          "application/xml",
+          "text/markdown",
+          "text/yaml",
+          "application/yaml",
+          "application/pdf",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "application/vnd.ms-excel",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ];
 
     const newFiles = [];
 
     for (let file of files) {
       if (file.size > 10 * 1024 * 1024) {
         setError(`File "${file.name}" is too large. Maximum size is 10MB.`);
+        continue;
+      }
+
+      if (!supportedFormats.includes(file.type)) {
+        setError(`File type "${file.type}" is not supported.`);
         continue;
       }
 
@@ -244,6 +249,18 @@ const HomePage = () => {
     sessionStorage.setItem("uploadedFiles", JSON.stringify(updatedFiles));
   };
 
+  const handleTextContent = () => {
+    const textContent = prompt("Enter text content to add:");
+    if (textContent) {
+      const textFile = new File([textContent], `text_input_${Date.now()}.txt`, {
+        type: "text/plain",
+        lastModified: Date.now(),
+      });
+      handleFileUpload([textFile]);
+    }
+    setShowUploadOptions(false);
+  };
+
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -296,25 +313,21 @@ const HomePage = () => {
       return;
     }
 
-    // Set states for immediate feedback
     setIsGenerating(true);
     setIsNavigating(true);
     setError("");
 
-    // Use existing userId or walletAddress
     const userId = localStorage.getItem("userId") || walletAddress;
 
-    // Store the generation request data in sessionStorage for the workspace to pick up
     const generationRequest = {
       prompt,
       existingFiles: null,
       uploadedFiles: uploadedFiles.length > 0 ? uploadedFiles : null,
       isGenerating: true,
       startTime: Date.now(),
-      userId, // Include userId in the request
+      userId,
     };
 
-    // Clear any existing generated files and set up the generation state
     sessionStorage.removeItem("generatedFiles");
     sessionStorage.setItem(
       "generationRequest",
@@ -323,12 +336,10 @@ const HomePage = () => {
     sessionStorage.setItem("originalPrompt", prompt);
     sessionStorage.setItem("uploadedFiles", JSON.stringify(uploadedFiles));
 
-    // Small delay to show the "Navigating..." state
     setTimeout(() => {
       router.push("/workspace");
     }, 300);
 
-    // Continue with the rest of the generation logic...
     try {
       console.log("Starting code generation with prompt:", prompt);
 
@@ -337,7 +348,7 @@ const HomePage = () => {
         existingFiles: null,
         uploadedFiles: uploadedFiles.length > 0 ? uploadedFiles : null,
         uploadedFilesCount: uploadedFiles.length,
-        userId, // Pass userId to backend
+        userId,
       };
 
       console.log("Sending request to API with body:", {
@@ -378,12 +389,10 @@ const HomePage = () => {
       }
 
       if (data.files) {
-        // Store userId from response or keep existing
         if (data.userId && !localStorage.getItem("userId")) {
           localStorage.setItem("userId", data.userId);
         }
 
-        // Create new conversation
         const newConversation = {
           _id: data.conversationId,
           prompt,
@@ -392,12 +401,10 @@ const HomePage = () => {
           timestamp: new Date().toISOString(),
         };
 
-        // Update session storage with the generated files
         sessionStorage.setItem("generatedFiles", JSON.stringify(data.files));
         sessionStorage.setItem("generationComplete", "true");
         sessionStorage.removeItem("generationRequest");
 
-        // Update conversation history
         setConversations((prev) => [newConversation, ...prev]);
       } else {
         throw new Error("No files generated");
@@ -409,7 +416,6 @@ const HomePage = () => {
           ? (error as { message: string }).message
           : String(error);
 
-      // Store the error in sessionStorage for the workspace to handle
       const generationError = {
         error:
           errorMessage.includes("truncate") ||
@@ -431,16 +437,46 @@ const HomePage = () => {
   };
 
   const handleClearProject = () => {
-    sessionStorage.removeItem("generatedFiles");
-    sessionStorage.removeItem("originalPrompt");
-    sessionStorage.removeItem("uploadedFiles");
-    setOriginalPrompt("");
     setPrompt("");
+    setError("");
     setUploadedFiles([]);
     setSelectedConversation(null);
     setExpandedFiles({});
-    // Keep userId to maintain conversation history
     fetchConversations(localStorage.getItem("userId") || walletAddress || "");
+  };
+
+  const handleDeleteConversation = async (conversationId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this project?')) return;
+    
+    try {
+      const userId = localStorage.getItem("userId") || walletAddress;
+      if (!userId) return;
+      
+      const response = await fetch(`/api/conversations/${conversationId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete conversation');
+      }
+
+      // Update local state
+      setConversations(prev => prev.filter(c => c._id !== conversationId));
+      
+      // If the deleted conversation is currently selected, clear the selection
+      if (selectedConversation?._id === conversationId) {
+        setSelectedConversation(null);
+      }
+      
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      setError('Failed to delete project. Please try again.');
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -451,7 +487,6 @@ const HomePage = () => {
   };
 
   const handleSelectConversation = (conversation: Conversation) => {
-    // Save conversation data to session storage for the workspace to load
     sessionStorage.setItem(
       "generatedFiles",
       JSON.stringify(conversation.generatedFiles || {})
@@ -462,7 +497,6 @@ const HomePage = () => {
       JSON.stringify(conversation.uploadedFiles || [])
     );
 
-    // Redirect to workspace
     router.push("/workspace");
   };
 
@@ -476,7 +510,10 @@ const HomePage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-black text-white" suppressHydrationWarning>
+    <div
+      className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white"
+      suppressHydrationWarning
+    >
       {/* Header */}
       <div className="flex items-center justify-between p-6">
         <div className="flex items-center gap-3">
@@ -504,8 +541,8 @@ const HomePage = () => {
                 onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                   e.stopPropagation();
                   disconnectWallet();
-                  localStorage.removeItem("userId"); // Clear userId on disconnect
-                  setConversations([]); // Clear history
+                  localStorage.removeItem("userId");
+                  setConversations([]);
                 }}
                 className="text-gray-400 hover:text-white transition-colors"
                 title="Disconnect wallet"
@@ -599,25 +636,47 @@ const HomePage = () => {
                 onChange={(e) => setPrompt(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder="What would you like to build?"
-                className={`w-full h-32 p-4 pr-20 text-lg bg-gray-800 border border-gray-700 rounded-xl resize-none focus:ring-2 focus:ring-lime-400 focus:border-transparent transition-all placeholder-gray-500 text-white ${
+                className={`w-full h-32 p-4 pr-12 text-lg bg-gray-800 border border-gray-700 rounded-xl resize-none focus:ring-2 focus:ring-lime-400 focus:border-transparent transition-all placeholder-gray-500 text-white ${
                   isDragging ? "border-lime-400 bg-lime-900/20" : ""
                 }`}
                 disabled={isGenerating}
               />
 
-              {/* Bottom Icons */}
-              <div className="absolute bottom-3 left-3 flex items-center gap-3">
+              {/* Upload Options Button */}
+              <div className="absolute bottom-3 left-3">
                 <button
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => setShowUploadOptions(!showUploadOptions)}
+                  className="px-3 py-1.5 bg-lime-500 text-black rounded-full hover:bg-lime-400 transition-colors text-sm font-medium flex items-center gap-2"
                   disabled={isGenerating}
-                  className="p-1 text-gray-400 hover:text-lime-400 transition-colors disabled:opacity-50"
-                  title="Attach files"
                 >
                   <Upload className="w-4 h-4" />
+                  Add
                 </button>
-                <Code className="w-4 h-4 text-gray-400" />
-                <Sparkles className="w-4 h-4 text-lime-400" />
-                <Zap className="w-4 h-4 text-gray-400" />
+                {showUploadOptions && (
+                  <div className="absolute top-full left-0 mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-2 w-48 z-10">
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded-md transition-colors"
+                    >
+                      <File className="w-4 h-4" />
+                      Upload File
+                    </button>
+                    <button
+                      onClick={handleTextContent}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded-md transition-colors"
+                    >
+                      <Text className="w-4 h-4" />
+                      Add Text Content
+                    </button>
+                    <button
+                      onClick={() => imageInputRef.current?.click()}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded-md transition-colors"
+                    >
+                      <Image className="w-4 h-4" />
+                      Upload Image
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Drag overlay */}
@@ -634,7 +693,7 @@ const HomePage = () => {
                 </div>
               )}
 
-              {/* Hidden file input */}
+              {/* Hidden file inputs */}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -643,7 +702,17 @@ const HomePage = () => {
                 onChange={(e) =>
                   handleFileUpload(Array.from(e.target.files || []))
                 }
-                accept=".txt,.csv,.json,.html,.css,.js,.ts,.py,.java,.xml,.md,.yml,.yaml,.pdf,.png,.jpg,.jpeg,.gif,.svg,.xlsx,.xls,.doc,.docx"
+                accept=".txt,.csv,.json,.html,.css,.js,.ts,.py,.java,.xml,.md,.yml,.yaml,.pdf,.xlsx,.xls,.doc,.docx"
+              />
+              <input
+                ref={imageInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) =>
+                  handleFileUpload(Array.from(e.target.files || []), true)
+                }
+                accept=".png,.jpg,.jpeg,.gif,.svg"
               />
             </div>
 
@@ -654,18 +723,7 @@ const HomePage = () => {
               </div>
             )}
 
-            <div className="flex items-center justify-between mt-6">
-              <div className="flex items-center gap-4">
-                {(uploadedFiles.length > 0 || conversations.length > 0) && (
-                  <button
-                    onClick={handleClearProject}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-red-400 hover:bg-red-900/20 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Clear All
-                  </button>
-                )}
-              </div>
+            <div className="flex items-center justify-end mt-6">
 
               <button
                 onClick={handleGenerate}
@@ -707,7 +765,7 @@ const HomePage = () => {
 
         {/* Conversation History */}
         {conversations.length > 0 && (
-          <div className="mb-8">
+          <div className="mt-10 mb-10">
             <h3 className="text-lg font-semibold text-gray-300 mb-4">
               Conversation History
             </h3>
@@ -716,12 +774,19 @@ const HomePage = () => {
                 <div
                   key={conversation._id}
                   onClick={() => handleSelectConversation(conversation)}
-                  className={`p-4 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors ${
+                  className={`group relative p-4 pr-12 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors ${
                     selectedConversation?._id === conversation._id
                       ? "ring-2 ring-lime-400"
                       : ""
                   }`}
                 >
+                  <button
+                    onClick={(e) => handleDeleteConversation(conversation._id, e)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Delete project"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                   <p className="text-sm font-medium text-gray-300 truncate">
                     {conversation.prompt || "Files uploaded"}
                   </p>

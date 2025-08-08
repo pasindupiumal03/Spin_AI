@@ -56,11 +56,19 @@ const WorkspacePage = () => {
   const [generatedFilesList, setGeneratedFilesList] = useState<string[]>([]);
   const [changedFiles, setChangedFiles] = useState<{ path: string; status: "updated" | "new" }[]>([]);
   const [promptFileHistory, setPromptFileHistory] = useState<
-    { prompt: string; files: { path: string; status: "updated" | "new" }[] }[]
+    { 
+      prompt: string; 
+      files: { path: string; status: "updated" | "new" }[];
+      projectTitle?: string;
+      explanation?: string;
+      timestamp?: string;
+    }[]
   >([]);
   const [generationStatus, setGenerationStatus] = useState<"idle" | "generating" | "complete" | "error">("idle");
   const [generationError, setGenerationError] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [currentProjectTitle, setCurrentProjectTitle] = useState("");
+  const [currentExplanation, setCurrentExplanation] = useState("");
 
   const router = useRouter();
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -110,6 +118,8 @@ const WorkspacePage = () => {
     const generationErrorStored = sessionStorage.getItem("generationError");
     const storedChangedFiles = sessionStorage.getItem("changedFiles");
     const storedPromptFileHistory = sessionStorage.getItem("promptFileHistory");
+    const storedProjectTitle = sessionStorage.getItem("projectTitle");
+    const storedExplanation = sessionStorage.getItem("explanation");
 
     if (generationRequest && !existingFiles) {
       const request = JSON.parse(generationRequest);
@@ -125,6 +135,15 @@ const WorkspacePage = () => {
       setGenerationStatus("complete");
       const fileNames = Object.keys(parsedFiles);
       setGeneratedFilesList(fileNames);
+      
+      // Set project title and explanation
+      if (storedProjectTitle) {
+        setCurrentProjectTitle(storedProjectTitle);
+      }
+      if (storedExplanation) {
+        setCurrentExplanation(storedExplanation);
+      }
+      
       if (storedChangedFiles) {
         setChangedFiles(JSON.parse(storedChangedFiles));
       }
@@ -135,7 +154,13 @@ const WorkspacePage = () => {
         setChatHistory(parsedHistory.map((entry: any) => entry.prompt).filter((p: string) => p !== storedPrompt));
       } else if (fileNames.length > 0) {
         // Initialize promptFileHistory with original prompt and initial files
-        setPromptFileHistory([{ prompt: storedPrompt, files: fileNames.map(path => ({ path, status: "new" })) }]);
+        setPromptFileHistory([{ 
+          prompt: storedPrompt, 
+          files: fileNames.map(path => ({ path, status: "new" })),
+          projectTitle: storedProjectTitle || "",
+          explanation: storedExplanation || "",
+          timestamp: new Date().toISOString()
+        }]);
       }
     } else if (generationErrorStored) {
       const error = JSON.parse(generationErrorStored);
@@ -160,6 +185,8 @@ const WorkspacePage = () => {
     const generatedFiles = sessionStorage.getItem("generatedFiles");
     const generationComplete = sessionStorage.getItem("generationComplete");
     const generationError = sessionStorage.getItem("generationError");
+    const projectTitle = sessionStorage.getItem("projectTitle");
+    const explanation = sessionStorage.getItem("explanation");
 
     if (generationError) {
       const error = JSON.parse(generationError);
@@ -182,15 +209,35 @@ const WorkspacePage = () => {
       setIsGeneratingResponse(false);
       setIsInitialGeneration(false);
       
+      // Set project title and explanation
+      if (projectTitle) {
+        setCurrentProjectTitle(projectTitle);
+      }
+      if (explanation) {
+        setCurrentExplanation(explanation);
+      }
+      
       const fileNames = Object.keys(files);
       animateFilesList(fileNames);
       
       // Update promptFileHistory for initial generation
       const storedPrompt = sessionStorage.getItem("originalPrompt") || "";
-      setPromptFileHistory([{ prompt: storedPrompt, files: fileNames.map(path => ({ path, status: "new" })) }]);
+      setPromptFileHistory([{ 
+        prompt: storedPrompt, 
+        files: fileNames.map(path => ({ path, status: "new" })),
+        projectTitle: projectTitle || "",
+        explanation: explanation || "",
+        timestamp: new Date().toISOString()
+      }]);
       sessionStorage.setItem(
         "promptFileHistory",
-        JSON.stringify([{ prompt: storedPrompt, files: fileNames.map(path => ({ path, status: "new" })) }])
+        JSON.stringify([{ 
+          prompt: storedPrompt, 
+          files: fileNames.map(path => ({ path, status: "new" })),
+          projectTitle: projectTitle || "",
+          explanation: explanation || "",
+          timestamp: new Date().toISOString()
+        }])
       );
       
       if (generationPollingRef.current) {
@@ -235,8 +282,12 @@ const WorkspacePage = () => {
     sessionStorage.removeItem("generationError");
     sessionStorage.removeItem("changedFiles");
     sessionStorage.removeItem("promptFileHistory");
+    sessionStorage.removeItem("projectTitle");
+    sessionStorage.removeItem("explanation");
     setChangedFiles([]);
     setPromptFileHistory([]);
+    setCurrentProjectTitle("");
+    setCurrentExplanation("");
     router.push("/");
   };
 
@@ -288,10 +339,27 @@ const WorkspacePage = () => {
 
         setFiles(newFiles);
         setChangedFiles(changedFilesList);
+        
+        // Update project title and explanation if provided
+        if (data.projectTitle) {
+          setCurrentProjectTitle(data.projectTitle);
+          sessionStorage.setItem("projectTitle", data.projectTitle);
+        }
+        if (data.explanation) {
+          setCurrentExplanation(data.explanation);
+          sessionStorage.setItem("explanation", data.explanation);
+        }
+        
         setPromptFileHistory(prev => {
           const updatedHistory = [
             ...prev,
-            { prompt: chatPrompt, files: changedFilesList },
+            { 
+              prompt: chatPrompt, 
+              files: changedFilesList,
+              projectTitle: data.projectTitle || "",
+              explanation: data.explanation || "",
+              timestamp: new Date().toISOString()
+            },
           ];
           sessionStorage.setItem("promptFileHistory", JSON.stringify(updatedHistory));
           return updatedHistory;
@@ -378,59 +446,102 @@ const WorkspacePage = () => {
           {/* Chat Header */}
           <div className="p-4 border-b border-gray-800">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium">AI</span>
+              <div className="w-10 h-10 bg-gradient-to-br from-lime-400 to-green-500 rounded-full flex items-center justify-center">
+                <span className="text-sm font-bold text-black">AI</span>
               </div>
               <div>
-                <h3 className="font-medium">Prompt History</h3>
+                <h3 className="font-medium text-white">Prompt History</h3>
+                <p className="text-xs text-gray-400">Project evolution timeline</p>
               </div>
             </div>
+            
+            {/* Current Project Info */}
+            {currentProjectTitle && (
+              <div className="bg-gray-800 rounded-lg p-3 mb-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 bg-lime-400 rounded-full"></div>
+                  <h4 className="font-medium text-white text-sm">{currentProjectTitle}</h4>
+                </div>
+                {currentExplanation && (
+                  <p className="text-xs text-gray-400 line-clamp-2">{currentExplanation}</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Prompt History and File Changes */}
           <div className="flex-1 p-4 overflow-y-auto" ref={chatContainerRef}>
             {promptFileHistory.length > 0 ? (
-              promptFileHistory.map((entry, index) => (
-                <div key={index} className="mb-6">
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-lime-500 flex items-center justify-center">
-                      <span className="text-xs text-black">{index + 1}</span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-gray-300 mb-2">
-                        {entry.prompt || "Initial Project Generation"}
+              <div className="space-y-4">
+                {promptFileHistory.map((entry, index) => (
+                  <div key={index} className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-gray-600 transition-colors">
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-lime-400 to-green-500 flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs font-bold text-black">{index + 1}</span>
                       </div>
-                      {entry.files.length > 0 && (
-                        <div className="space-y-1">
-                          {entry.files.map((file, fileIndex) => (
-                            <div
-                              key={file.path}
-                              className="text-xs text-gray-400 flex items-center gap-2 animate-fadeIn"
-                              style={{ animationDelay: `${fileIndex * 0.1}s` }}
-                            >
-                              <div className="w-1 h-1 bg-lime-400 rounded-full"></div>
-                              <span className="truncate">{file.path}</span>
-                              <span
-                                className={cn(
-                                  "ml-2 px-2 py-0.5 text-xs font-medium rounded-full",
-                                  file.status === "updated"
-                                    ? "bg-green-500/20 text-green-400"
-                                    : "bg-blue-500/20 text-blue-400"
-                                )}
-                              >
-                                {file.status === "updated" ? "Updated" : "New"}
-                              </span>
-                            </div>
-                          ))}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="text-sm font-medium text-white truncate">
+                            {entry.projectTitle || "Project Update"}
+                          </h4>
+                          {entry.timestamp && (
+                            <span className="text-xs text-gray-500">
+                              {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          )}
                         </div>
-                      )}
+                        <p className="text-xs text-gray-300 mb-2 line-clamp-2">
+                          {entry.prompt || "Initial Project Generation"}
+                        </p>
+                        {entry.explanation && (
+                          <p className="text-xs text-gray-400 mb-2 line-clamp-2">
+                            {entry.explanation}
+                          </p>
+                        )}
+                      </div>
                     </div>
+                    
+                    {entry.files.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="text-xs text-gray-500 mb-2 flex items-center gap-2">
+                          <div className="w-1 h-1 bg-gray-500 rounded-full"></div>
+                          <span>Files {entry.files.length}</span>
+                        </div>
+                        {entry.files.map((file, fileIndex) => (
+                          <div
+                            key={file.path}
+                            className="text-xs text-gray-400 flex items-center gap-2 animate-fadeIn bg-gray-700 rounded px-2 py-1"
+                            style={{ animationDelay: `${fileIndex * 0.1}s` }}
+                          >
+                            <div className={cn(
+                              "w-1 h-1 rounded-full",
+                              file.status === "updated" ? "bg-yellow-400" : "bg-lime-400"
+                            )}></div>
+                            <span className="truncate flex-1">{file.path}</span>
+                            <span
+                              className={cn(
+                                "px-2 py-0.5 text-xs font-medium rounded-full",
+                                file.status === "updated"
+                                  ? "bg-yellow-500/20 text-yellow-400"
+                                  : "bg-lime-500/20 text-lime-400"
+                              )}
+                            >
+                              {file.status === "updated" ? "Updated" : "New"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))
+                ))}
+              </div>
             ) : (
-              <div className="text-center text-gray-500 text-sm">
-                No prompt history available
+              <div className="text-center text-gray-500 text-sm py-8">
+                <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <MessageSquare className="w-6 h-6 text-gray-600" />
+                </div>
+                <p>No prompt history available</p>
+                <p className="text-xs mt-1">Start by generating your first project</p>
               </div>
             )}
           </div>
