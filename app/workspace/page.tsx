@@ -55,17 +55,9 @@ const WorkspacePage = () => {
   const [isInitialGeneration, setIsInitialGeneration] = useState(false);
   const [generatedFilesList, setGeneratedFilesList] = useState<string[]>([]);
   const [changedFiles, setChangedFiles] = useState<{ path: string; status: "updated" | "new" }[]>([]);
-  // 1. Update the promptFileHistory state to support new fields
   const [promptFileHistory, setPromptFileHistory] = useState<
-    {
-      prompt: string;
-      files: { path: string; status: "updated" | "new" }[];
-      projectTitle?: string;
-      explanation?: string;
-      emoji?: string;
-    }[]
+    { prompt: string; files: { path: string; status: "updated" | "new" }[] }[]
   >([]);
-  const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number | null>(null);
   const [generationStatus, setGenerationStatus] = useState<"idle" | "generating" | "complete" | "error">("idle");
   const [generationError, setGenerationError] = useState("");
   const [isExporting, setIsExporting] = useState(false);
@@ -118,14 +110,6 @@ const WorkspacePage = () => {
     const generationErrorStored = sessionStorage.getItem("generationError");
     const storedChangedFiles = sessionStorage.getItem("changedFiles");
     const storedPromptFileHistory = sessionStorage.getItem("promptFileHistory");
-
-    // Check if user has a userId
-    const userId = localStorage.getItem("userId");
-    if (!userId) {
-      console.warn("No userId found, redirecting to home page");
-      router.push("/");
-      return;
-    }
 
     if (generationRequest && !existingFiles) {
       const request = JSON.parse(generationRequest);
@@ -203,26 +187,10 @@ const WorkspacePage = () => {
       
       // Update promptFileHistory for initial generation
       const storedPrompt = sessionStorage.getItem("originalPrompt") || "";
-      const projectTitle = sessionStorage.getItem("projectTitle");
-      const explanation = sessionStorage.getItem("explanation");
-      const emoji = sessionStorage.getItem("emoji");
-      
-      setPromptFileHistory([{ 
-        prompt: storedPrompt, 
-        files: fileNames.map(path => ({ path, status: "new" })),
-        projectTitle: projectTitle || undefined,
-        explanation: explanation || undefined,
-        emoji: emoji || undefined
-      }]);
+      setPromptFileHistory([{ prompt: storedPrompt, files: fileNames.map(path => ({ path, status: "new" })) }]);
       sessionStorage.setItem(
         "promptFileHistory",
-        JSON.stringify([{ 
-          prompt: storedPrompt, 
-          files: fileNames.map(path => ({ path, status: "new" })),
-          projectTitle: projectTitle || undefined,
-          explanation: explanation || undefined,
-          emoji: emoji || undefined
-        }])
+        JSON.stringify([{ prompt: storedPrompt, files: fileNames.map(path => ({ path, status: "new" })) }])
       );
       
       if (generationPollingRef.current) {
@@ -285,13 +253,6 @@ const WorkspacePage = () => {
 
     try {
       const prevFiles = { ...files };
-      
-      // Get userId from localStorage (set in main page)
-      const userId = localStorage.getItem("userId");
-      if (!userId) {
-        throw new Error("User ID not found. Please refresh the page and try again.");
-      }
-
       const response = await fetch("/api/anthropic", {
         method: "POST",
         headers: {
@@ -300,7 +261,6 @@ const WorkspacePage = () => {
         body: JSON.stringify({
           prompt: chatPrompt,
           existingFiles: files,
-          userId: userId,
         }),
       });
 
@@ -331,13 +291,7 @@ const WorkspacePage = () => {
         setPromptFileHistory(prev => {
           const updatedHistory = [
             ...prev,
-            { 
-              prompt: chatPrompt, 
-              files: changedFilesList,
-              projectTitle: data.projectTitle,
-              explanation: data.explanation,
-              emoji: data.emoji
-            },
+            { prompt: chatPrompt, files: changedFilesList },
           ];
           sessionStorage.setItem("promptFileHistory", JSON.stringify(updatedHistory));
           return updatedHistory;
@@ -354,19 +308,13 @@ const WorkspacePage = () => {
         typeof error === "object" && error !== null && "message" in error
           ? (error as { message: string }).message
           : String(error);
-      
-      // Handle specific error cases
-      if (errorMessage.includes("User ID not found")) {
-        setChatError("Session expired. Please refresh the page and try again.");
-      } else if (errorMessage.includes("truncate") || errorMessage.includes("max_tokens")) {
-        setChatError("Response too large. Try a simpler prompt or try again later.");
-      } else if (errorMessage.includes("529")) {
-        setChatError("Anthropic API is temporarily unavailable. Please try again later.");
-      } else if (errorMessage.includes("400")) {
-        setChatError("Invalid request. Please check your prompt and try again.");
-      } else {
-        setChatError(`Failed to update code: ${errorMessage}`);
-      }
+      setChatError(
+        errorMessage.includes("truncate") || errorMessage.includes("max_tokens")
+          ? "Response too large. Try a simpler prompt or try again later."
+          : errorMessage.includes("529")
+          ? "Anthropic API is temporarily unavailable. Please try again later."
+          : `Failed to update code: ${errorMessage}`
+      );
     } finally {
       setIsChatGenerating(false);
     }
@@ -443,23 +391,14 @@ const WorkspacePage = () => {
           <div className="flex-1 p-4 overflow-y-auto" ref={chatContainerRef}>
             {promptFileHistory.length > 0 ? (
               promptFileHistory.map((entry, index) => (
-                <div key={index} className={`mb-6 cursor-pointer group ${selectedHistoryIndex === index ? 'bg-gray-800/60 rounded-lg' : ''}`}
-                  onClick={() => setSelectedHistoryIndex(index)}
-                  title={entry.projectTitle || entry.prompt}
-                >
+                <div key={index} className="mb-6">
                   <div className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-lime-500 flex items-center justify-center">
                       <span className="text-xs text-black">{index + 1}</span>
                     </div>
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        {entry.emoji && <span className="text-lg">{entry.emoji}</span>}
-                        <span className="text-sm font-bold text-lime-300">
-                          {entry.projectTitle || "Project"}
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-400 mb-1">
-                        {entry.explanation || entry.prompt || "Initial Project Generation"}
+                      <div className="text-sm font-medium text-gray-300 mb-2">
+                        {entry.prompt || "Initial Project Generation"}
                       </div>
                       {entry.files.length > 0 && (
                         <div className="space-y-1">
@@ -645,110 +584,7 @@ const WorkspacePage = () => {
             ) : Object.keys(files).length > 0 ? (
               <SandpackProvider
                 template="react"
-                files={{
-                  ...files,
-                  "/App.css": files["/App.css"] || {
-                    code: `/* Default App.css */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background-color: #ffffff;
-  color: #000000;
-}
-
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
-}
-
-/* Ensure Tailwind classes work */
-* {
-  box-sizing: border-box;
-}`,
-                  },
-                  "/index.css": files["/index.css"] || {
-                    code: `/* Default index.css */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background-color: #ffffff;
-  color: #000000;
-}
-
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
-}`,
-                  },
-                  "/index.js": files["/index.js"] || {
-                    code: `import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-import './App.css';
-import './index.css';
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);`,
-                  },
-                  "/tailwind.config.js": {
-                    code: `/** @type {import('tailwindcss').Config} */
-module.exports = {
-  content: [
-    "./src/**/*.{js,jsx,ts,tsx}",
-    "./public/index.html",
-    "./**/*.{js,jsx,ts,tsx}",
-    "./*.{js,jsx,ts,tsx}",
-  ],
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-}`,
-                  },
-                  "/postcss.config.js": {
-                    code: `module.exports = {
-  plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
-  },
-}`,
-                  },
-                  "/src/index.css": {
-                    code: `@tailwind base;
-@tailwind components;
-@tailwind utilities;`,
-                  },
-                  "/public/index.html": files["/public/index.html"] || {
-                    code: `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Generated App</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
-</html>`,
-                  },
-                }}
+                files={files}
                 theme="dark"
                 options={{
                   visibleFiles: Object.keys(files),
@@ -763,15 +599,6 @@ module.exports = {
                     react: "^18.2.0",
                     "react-dom": "^18.2.0",
                     "react-scripts": "^5.0.1",
-                    "lucide-react": "^0.446.0",
-                    "date-fns": "^3.6.0",
-                    "react-chartjs-2": "^5.2.0",
-                    "chart.js": "^4.4.0",
-                    "firebase": "^10.7.0",
-                    "@google/generative-ai": "^0.24.1",
-                    "tailwindcss": "^3.3.3",
-                    "autoprefixer": "^10.4.15",
-                    "postcss": "^8.4.30",
                   },
                 }}
               >
