@@ -258,12 +258,21 @@ const HomePage = () => {
   const handleTextSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (textContent.trim()) {
-      const blob = new Blob([textContent], { type: 'text/plain' });
-      const textFile = new File([blob], `text_input_${Date.now()}.txt`, {
+      // Create a file-like object that matches the UploadedFile interface
+      const textFile: UploadedFile = {
+        id: Date.now(),
+        name: `text_input_${Date.now()}.txt`,
         type: 'text/plain',
+        size: new TextEncoder().encode(textContent).length,
+        content: textContent,
         lastModified: Date.now(),
-      });
-      handleFileUpload([textFile]);
+      };
+      
+      // Add to uploaded files
+      const updatedFiles = [...uploadedFiles, textFile];
+      setUploadedFiles(updatedFiles);
+      sessionStorage.setItem("uploadedFiles", JSON.stringify(updatedFiles));
+      
       setTextContent('');
       setShowTextModal(false);
     }
