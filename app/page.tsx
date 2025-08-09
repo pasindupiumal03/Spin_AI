@@ -60,6 +60,8 @@ const HomePage = () => {
     [key: string]: boolean;
   }>({});
   const [showUploadOptions, setShowUploadOptions] = useState(false);
+  const [showTextModal, setShowTextModal] = useState(false);
+  const [textContent, setTextContent] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -250,15 +252,19 @@ const HomePage = () => {
   };
 
   const handleTextContent = () => {
-    const textContent = prompt("Enter text content to add:");
-    if (textContent) {
+    setShowTextModal(true);
+  };
+
+  const handleTextSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (textContent.trim()) {
       const textFile = new File([textContent], `text_input_${Date.now()}.txt`, {
         type: "text/plain",
-        lastModified: Date.now(),
       });
       handleFileUpload([textFile]);
+      setTextContent('');
+      setShowTextModal(false);
     }
-    setShowUploadOptions(false);
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -720,6 +726,39 @@ const HomePage = () => {
               <div className="mt-4 p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-300 text-sm flex items-center gap-2">
                 <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                 {error}
+              </div>
+            )}
+
+            {showTextModal && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md">
+                  <h3 className="text-lg font-medium text-white mb-4">Add Text Content</h3>
+                  <form onSubmit={handleTextSubmit}>
+                    <textarea
+                      value={textContent}
+                      onChange={(e) => setTextContent(e.target.value)}
+                      placeholder="Enter your text here..."
+                      className="w-full h-32 p-3 bg-gray-700 text-white rounded-lg mb-4 resize-none"
+                      autoFocus
+                    />
+                    <div className="flex justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowTextModal(false)}
+                        className="px-4 py-2 text-sm text-gray-300 hover:text-white"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-lime-500 text-black rounded-lg text-sm font-medium hover:bg-lime-400 transition-colors"
+                        disabled={!textContent.trim()}
+                      >
+                        Add Text
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
             )}
 
