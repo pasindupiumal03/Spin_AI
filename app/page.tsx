@@ -258,8 +258,10 @@ const HomePage = () => {
   const handleTextSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (textContent.trim()) {
-      const textFile = new File([textContent], `text_input_${Date.now()}.txt`, {
-        type: "text/plain",
+      const blob = new Blob([textContent], { type: 'text/plain' });
+      const textFile = new File([blob], `text_input_${Date.now()}.txt`, {
+        type: 'text/plain',
+        lastModified: Date.now(),
       });
       handleFileUpload([textFile]);
       setTextContent('');
